@@ -287,22 +287,32 @@ class CSSSelectorBase(object):
     def __str__(self):
         return self.asString()
 
-
-    def _as_comparison_key(self):
-        return (self.specificity(), self.fullName, self.qualifiers)
-
-
     def __eq__(self, other):
         """Python 3"""
-        return self._as_comparison_key() == other._as_comparison_key()
+        return (
+            self.specificity() == other.specificity() and
+            self.fullName == other.fullName and
+            self.qualifiers == other.qualifiers
+        )
 
     def __lt__(self, other):
         """Python 3"""
-        return self._as_comparison_key() < other._as_comparison_key()
+        return not self.__eq__(other) and (
+            self.specificity() < other.specificity() or
+            self.fullName < other.fullName or
+            self.qualifiers < other.qualifiers
+        )
 
     def __cmp__(self, other):
         """Python 2"""
-        return cmp(self._as_comparison_key(), other._as_comparison_key())
+        result = cmp(self.specificity(), other.specificity())  # silence pyflakes
+        if result != 0:
+            return result
+        result = cmp(self.fullName, other.fullName)  # silence pyflakes
+        if result != 0:
+            return result
+        result = cmp(self.qualifiers, other.qualifiers)  # silence pyflakes
+        return result
 
 
     def specificity(self):
@@ -629,16 +639,24 @@ class CSSSelectorCombinationQualifier(CSSSelectorQualifierBase):
         return '%s%s' % (self.selector.asString(), self.op)
 
     def matches(self, element):
-        op, selector = self.op, self.selector
-        if op == ' ':
-            return any(selector.matches(parent) for parent in element.iterXMLParents())
-        elif op == '>':
-            parent = next(element.iterXMLParents(), None)
-            if parent is None:
-                return False
-            return selector.matches(parent)
-        elif op == '+':
-            return selector.matches(element.getPreviousSibling())
+        if self.op == ' ':
+            if element is not None:
+                if element.matchesNode(self.selector.fullName):
+                    try:
+                        for parent in element.iterXMLParents():
+                            [None for qualifier in self.selector.qualifiers if
+                             qualifier.matches(parent) and stopIter((None,))]
+                    except StopIteration:
+                        return True
+            return False
+        elif self.op == '>':
+            if element is not None:
+                if element.matchesNode(self.selector.fullName):
+                    if self.selector.qualifiers[0].matches(element):
+                        return True
+            return False
+        elif self.op == '+':
+            return self.selector.matches(element.getPreviousSibling())
 
 
 

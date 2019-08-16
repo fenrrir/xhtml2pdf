@@ -675,8 +675,6 @@ class pisaFileObject:
 
                 # Local data
                 if basepath:
-                    if sys.platform == 'win32' and os.path.isfile(basepath):
-                        basepath = os.path.dirname(basepath)
                     uri = os.path.normpath(os.path.join(basepath, uri))
 
                 if os.path.isfile(uri):
